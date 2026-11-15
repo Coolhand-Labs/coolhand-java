@@ -6,9 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.coolhandlabs.coolhand.CoolhandHttpException;
+import com.coolhandlabs.coolhand.model.Page;
 import com.coolhandlabs.coolhand.model.SearchWorkloadsParams;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -53,10 +56,15 @@ class SavingsLiveTest {
     @Test
     void workloadSavingsRowsJoinToWorkloadsOnId() {
         JsonNode savings = new SavingsService(config(apiKey)).getRealizedSavings();
-        List<String> ids = new WorkloadService(config(apiKey)).searchWorkloads(
-                SearchWorkloadsParams.builder()
-                        .includeArchived(true).includeSystem(true).per(100).build())
-                .items().stream().map(w -> w.get("id").asText()).toList();
+        WorkloadService workloadService = new WorkloadService(config(apiKey));
+        Set<String> ids = new HashSet<>();
+        Page<JsonNode> page;
+        int pageNumber = 1;
+        do {
+            page = workloadService.searchWorkloads(SearchWorkloadsParams.builder()
+                    .includeArchived(true).includeSystem(true).page(pageNumber++).per(100).build());
+            page.items().forEach(w -> ids.add(w.get("id").asText()));
+        } while (page.pagination().hasNextPage());
 
         for (JsonNode row : savings.get("workloads")) {
             assertTrue(ids.contains(row.get("id").asText()), "savings row " + row.get("id") + " matches a workload id");
