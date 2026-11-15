@@ -32,6 +32,7 @@ import com.coolhandlabs.coolhand.services.LlmReferenceService;
 import com.coolhandlabs.coolhand.services.LoggingService;
 import com.coolhandlabs.coolhand.services.OptimizationFeedbackLinkService;
 import com.coolhandlabs.coolhand.services.PatternMatchingService;
+import com.coolhandlabs.coolhand.services.SavingsService;
 import com.coolhandlabs.coolhand.services.ServiceConfig;
 import com.coolhandlabs.coolhand.services.StepTemplateService;
 import com.coolhandlabs.coolhand.services.TemplateService;
@@ -79,6 +80,7 @@ public final class Coolhand implements AutoCloseable {
     private final TemplateService templateService;
     private final StepTemplateService stepTemplateService;
     private final WorkloadService workloadService;
+    private final SavingsService savingsService;
     private final ClientFileService clientFileService;
     private final LlmReferenceService llmReferenceService;
     private final HelpCenterDocsService helpCenterDocsService;
@@ -107,6 +109,7 @@ public final class Coolhand implements AutoCloseable {
         this.templateService = new TemplateService(config);
         this.stepTemplateService = new StepTemplateService(config);
         this.workloadService = new WorkloadService(config);
+        this.savingsService = new SavingsService(config);
         this.clientFileService = new ClientFileService(config);
         this.llmReferenceService = new LlmReferenceService(config);
         this.helpCenterDocsService = new HelpCenterDocsService(config);
@@ -394,6 +397,17 @@ public final class Coolhand implements AutoCloseable {
         return workloadService.searchWorkloads(params);
     }
 
+    /**
+     * The saving this client has realized by switching templates or models, in total and per workload
+     * (private API key). Not windowed by {@code daysBack}; see docs/savings.md.
+     *
+     * @throws CoolhandHttpException on a non-2xx response; {@code 503} means the comparison could not be
+     *     computed and is not zero savings
+     */
+    public JsonNode getRealizedSavings() {
+        return savingsService.getRealizedSavings();
+    }
+
     /** Creates or updates a workload by key (private API key); empty on a dry run. */
     public Optional<UpsertResult> upsertWorkload(UpsertWorkloadParams params) {
         return workloadService.upsert(params);
@@ -533,6 +547,7 @@ public final class Coolhand implements AutoCloseable {
     public TemplateService templateService() { return templateService; }
     public StepTemplateService stepTemplateService() { return stepTemplateService; }
     public WorkloadService workloadService() { return workloadService; }
+    public SavingsService savingsService() { return savingsService; }
     public ClientFileService clientFileService() { return clientFileService; }
     public LlmReferenceService llmReferenceService() { return llmReferenceService; }
     public HelpCenterDocsService helpCenterDocsService() { return helpCenterDocsService; }

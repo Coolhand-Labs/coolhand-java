@@ -2,6 +2,7 @@ package com.coolhandlabs.coolhand.services;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -116,6 +117,68 @@ class ReadServicesTest {
         assertEquals(3, s.getStepTemplate(3, false).get("id").intValue());
         assertEquals("/api/v2/step_templates/3?include_metrics=false", api.take().target());
         assertThrows(IllegalArgumentException.class, () -> s.getStepTemplate(0, null));
+    }
+
+    private static final String SAVINGS = "{\"total\":4.5372,\"cost_at_previous_versions\":5.6912,\"percent\":79.7,"
+            + "\"workloads\":[{\"id\":\"xwjm0lgsdmy4\",\"name\":\"Help Center Article Suggester\",\"savings\":2.0437,"
+            + "\"cost_at_previous_versions\":3.0402,\"active_requests\":182}]}";
+
+    @Test
+    void realizedSavingsGetsTheSingletonWithNoQueryAndTheKey() {
+        api.on("/api/v2/savings", FakeServer.json(200, SAVINGS));
+        SavingsService s = new SavingsService(config());
+        assertEquals(api.baseUrl() + "/api/v2/savings", s.getApiEndpoint());
+        JsonNode savings = s.getRealizedSavings();
+        FakeServer.Received req = api.take();
+        assertEquals("GET", req.method());
+        assertEquals("/api/v2/savings", req.target());
+        assertEquals(TestSupport.API_KEY, req.header("X-API-Key"));
+        assertEquals("application/json", req.header("Accept"));
+        assertEquals(TestSupport.json(SAVINGS), savings);
+        assertTrue(savings.get("total").isNumber());
+        assertTrue(savings.get("workloads").get(0).get("id").isTextual());
+        assertTrue(savings.get("workloads").get(0).get("active_requests").isIntegralNumber());
+    }
+
+    @Test
+    void realizedSavingsReturnsZerosAndNoWorkloadsAsRealZeroSavings() {
+        String zero = "{\"total\":0.0,\"cost_at_previous_versions\":0.0,\"percent\":0.0,\"workloads\":[]}";
+        api.on("/api/v2/savings", FakeServer.json(200, zero));
+        JsonNode savings = new SavingsService(config()).getRealizedSavings();
+        assertEquals(TestSupport.json(zero), savings);
+        assertEquals(0, savings.get("workloads").size());
+    }
+
+    @Test
+    void realizedSavingsThrowsTheStatusOnA503AndNeverReturnsZeros() {
+        api.on("/api/v2/savings", FakeServer.json(503,
+                "{\"errors\":{\"system\":[\"Realized savings could not be computed right now. Please retry.\"]}}"));
+        CoolhandHttpException e = assertThrows(CoolhandHttpException.class, () -> new SavingsService(config()).getRealizedSavings());
+        assertEquals(503, e.status());
+        assertTrue(e.getMessage().contains("could not be computed"));
+    }
+
+    @Test
+    void realizedSavingsThrowsTheStatusOnA401() {
+        api.on("/api/v2/savings", FakeServer.json(401, "{\"error\":\"Invalid API key\"}"));
+        assertEquals(401, assertThrows(CoolhandHttpException.class, () -> new SavingsService(config()).getRealizedSavings()).status());
+    }
+
+    @Test
+    void realizedSavingsMasksTheKeyAndRejectsNonJsonBodies() {
+        api.on("/api/v2/savings", FakeServer.json(401, "bad key " + TestSupport.API_KEY));
+        CoolhandHttpException e = assertThrows(CoolhandHttpException.class, () -> new SavingsService(config()).getRealizedSavings());
+        assertFalse(e.getMessage().contains(TestSupport.API_KEY));
+
+        api.on("/api/v2/savings", FakeServer.json(200, "<html>502 Bad Gateway</html>"));
+        assertThrows(CoolhandException.class, () -> new SavingsService(config()).getRealizedSavings());
+    }
+
+    @Test
+    void realizedSavingsIsAReadSoADryRunStillIssuesTheRequest() {
+        api.on("/api/v2/savings", FakeServer.json(200, SAVINGS));
+        new SavingsService(dryRun()).getRealizedSavings();
+        assertEquals("/api/v2/savings", api.take().target());
     }
 
     @Test
