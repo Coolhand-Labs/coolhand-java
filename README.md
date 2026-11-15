@@ -184,6 +184,15 @@ Page<JsonNode> workloads = coolhand.searchWorkloads(SearchWorkloadsParams.builde
 
 See [docs/workload-search.md](docs/workload-search.md).
 
+## Reading Realized Savings
+
+```java
+JsonNode savings = coolhand.getRealizedSavings(); // private API key, no parameters
+double total = savings.get("total").doubleValue(); // USD saved by moving off deprecated templates
+```
+
+A `503` throws `CoolhandHttpException` and is not zero savings. See [docs/savings.md](docs/savings.md).
+
 ## Reading the Help Center
 
 ```java
@@ -457,6 +466,7 @@ logs or exception messages, and requests to Coolhand never follow redirects. See
 - [Feedback](docs/feedback.md) and [feedback links](docs/feedback-links.md)
 - [Log search](docs/log-search.md), [template search](docs/template-search.md),
   [step templates](docs/step-templates.md), [workloads](docs/workload-search.md),
+  [realized savings](docs/savings.md),
   [referenced files](docs/llm-reference-search.md)
 - [Client files](docs/client-file-upload.md)
 - [Help center](docs/help-center.md)

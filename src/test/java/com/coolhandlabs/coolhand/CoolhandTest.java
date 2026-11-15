@@ -81,6 +81,13 @@ class CoolhandTest {
     }
 
     @Test
+    void getRealizedSavingsDelegatesToTheSavingsService() {
+        api.on("/api/v2/savings", FakeServer.json(200, "{\"total\":1.5,\"cost_at_previous_versions\":2.0,\"percent\":75.0,\"workloads\":[]}"));
+        assertEquals(1.5, coolhand().getRealizedSavings().get("total").doubleValue());
+        assertEquals("/api/v2/savings", api.take().target());
+    }
+
+    @Test
     void sanitizeHeadersIsExposed() {
         assertEquals(Map.of("authorization", "[REDACTED]"), coolhand().sanitizeHeaders(Map.of("Authorization", "x"), null));
     }
